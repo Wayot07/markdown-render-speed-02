@@ -1722,24 +1722,31 @@ function tokenizeInlines(S, src, maskedSrc, hints, tokens) {
     if (!keepPrevChar) prevChar = '';
     keepPrevChar = false;
 
+    // Each tokenizer's pattern is anchored to a fixed first character,
+    // so dispatch on it instead of running every pattern and failing.
+    // The order of attempts is unchanged; a skipped pattern could not
+    // have matched at this position.
+    const c0 = src.charCodeAt(0);
+    const urlStart = (c0 >= 48 && c0 <= 57) || (c0 >= 65 && c0 <= 90)
+      || (c0 >= 97 && c0 <= 122) || c0 === 46 || c0 === 95 || c0 === 43 || c0 === 45;
     let token;
 
-    if ((token = tokenizeEscape(src))) {
+    if (c0 === 92 && (token = tokenizeEscape(src))) {
       src = src.substring(token.raw.length);
       tokens.push(token);
       continue;
     }
-    if ((token = tokenizeTag(S, src))) {
+    if (c0 === 60 && (token = tokenizeTag(S, src))) {
       src = src.substring(token.raw.length);
       tokens.push(token);
       continue;
     }
-    if ((token = tokenizeLink(S, src))) {
+    if ((c0 === 91 || c0 === 33) && (token = tokenizeLink(S, src))) {
       src = src.substring(token.raw.length);
       tokens.push(token);
       continue;
     }
-    if ((token = tokenizeReflink(S, src))) {
+    if ((c0 === 91 || c0 === 33) && (token = tokenizeReflink(S, src))) {
       src = src.substring(token.raw.length);
       const lastToken = tokens.at(-1);
       if (token.type === 'text' && lastToken?.type === 'text') {
@@ -1750,32 +1757,32 @@ function tokenizeInlines(S, src, maskedSrc, hints, tokens) {
       }
       continue;
     }
-    if ((token = tokenizeEmStrong(S, src, maskedSrc, hints, prevChar))) {
+    if ((c0 === 42 || c0 === 95) && (token = tokenizeEmStrong(S, src, maskedSrc, hints, prevChar))) {
       src = src.substring(token.raw.length);
       tokens.push(token);
       continue;
     }
-    if ((token = tokenizeCodespan(src))) {
+    if (c0 === 96 && (token = tokenizeCodespan(src))) {
       src = src.substring(token.raw.length);
       tokens.push(token);
       continue;
     }
-    if ((token = tokenizeBr(src))) {
+    if ((c0 === 32 || c0 === 92) && (token = tokenizeBr(src))) {
       src = src.substring(token.raw.length);
       tokens.push(token);
       continue;
     }
-    if ((token = tokenizeDel(S, src, maskedSrc, hints, prevChar))) {
+    if (c0 === 126 && (token = tokenizeDel(S, src, maskedSrc, hints, prevChar))) {
       src = src.substring(token.raw.length);
       tokens.push(token);
       continue;
     }
-    if ((token = tokenizeAutolink(src))) {
+    if (c0 === 60 && (token = tokenizeAutolink(src))) {
       src = src.substring(token.raw.length);
       tokens.push(token);
       continue;
     }
-    if (!S.inLink && (token = tokenizeUrl(src))) {
+    if (!S.inLink && urlStart && (token = tokenizeUrl(src))) {
       src = src.substring(token.raw.length);
       tokens.push(token);
       continue;
@@ -1819,13 +1826,13 @@ function inlineTokens(S, src, tokens = []) {
 
 function inlineTokensInner(S, src, tokens) {
   // The masked source is only read by emStrong and del, which need a *,
-  // _ or ~ to start: skip building it for a run without one.
-  const maskedSrc = (src.includes('*') || src.includes('_') || src.includes('~'))
-    ? maskSrc(S, src)
-    : src;
+  // _ or ~ to start: skip building it for a run without one. The closer
+  // scan over a delimiter-free run would find nothing, so skip it too.
+  const hasDelim = src.includes('*') || src.includes('_') || src.includes('~');
+  const maskedSrc = hasDelim ? maskSrc(S, src) : src;
   // One scan of this masked source for the last emphasis, strong and
   // strikethrough closers, shared by every opener in the pass.
-  const hints = scanClosers(maskedSrc);
+  const hints = hasDelim ? scanClosers(maskedSrc) : { star: -1, und: -1, tilde: -1 };
   return tokenizeInlines(S, src, maskedSrc, hints, tokens);
 }
 
