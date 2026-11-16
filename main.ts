@@ -1,16 +1,12 @@
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
-import { join } from 'node:path';
-import { parse } from './parse.js';
+import { readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { parse } from "./parse.js";
 
-const inputDir = process.env.MAKEFUN_INPUT_DIR ?? '/input';
-const outputDir = process.env.MAKEFUN_OUTPUT_DIR ?? '/output';
-
-const cases = JSON.parse(readFileSync(join(inputDir, 'cases.json'), 'utf8'));
-
-const html = [];
+const inputDir = process.env.MAKEFUN_INPUT_DIR ?? "/input";
+const outputDir = process.env.MAKEFUN_OUTPUT_DIR ?? "/output";
+const cases = JSON.parse(readFileSync(join(inputDir, "cases.json"), "utf8"));
+const rendered: string[] = [];
 for (const c of cases) {
-  html.push(parse(c.markdown));
+  rendered.push(parse(c.markdown));
 }
-
-mkdirSync(outputDir, { recursive: true });
-writeFileSync(join(outputDir, 'html.json'), JSON.stringify(html));
+writeFileSync(join(outputDir, "html.json"), JSON.stringify(rendered));
